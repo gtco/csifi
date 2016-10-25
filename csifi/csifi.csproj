@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="AbbreviationTable.cs" />
     <Compile Include="Dictionary.cs" />
+    <Compile Include="Input.cs" />
     <Compile Include="MemoryReader.cs" />
     <Compile Include="ObjectTable.cs" />
     <Compile Include="Text.cs" />

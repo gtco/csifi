@@ -58,7 +58,7 @@ namespace csifi
                 return false;
             }
 
-            // TODO create object table
+            // create object table
             _objectTable = new ObjectTable(GetWord(Buffer, Header.ObjectTable));
             if (!_objectTable.Init(Buffer, _abbreviationTable))
             {

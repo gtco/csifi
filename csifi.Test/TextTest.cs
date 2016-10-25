@@ -18,7 +18,7 @@ namespace csifi.Test
             a += 6;
             character = new Character(a);
             c = character.DecodeCharacter(Character.Alphabet2);
-            Assert.AreEqual(c, '0');
+            Assert.AreEqual(c, '6');
         }
 
         [TestMethod]
