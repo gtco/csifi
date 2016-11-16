@@ -20,6 +20,7 @@ namespace csifi
         private AbbreviationTable _abbreviationTable;
         private Dictionary _dictionary;
         private ObjectTable _objectTable;
+        private Globals _globals;
 
         public bool LoadFile(string filename)
         {
@@ -66,10 +67,18 @@ namespace csifi
                 return false;
             }
 
+            // load global variables
+            _globals = new Globals(GetWord(Buffer, Header.GlobalVar));
+            if (!_globals.Init(Buffer))
+            {
+                Logger.Error("Failed to load global variables");
+                return false;
+            }
+
             Logger.Debug($"Starting execution at {initialPc}");
 
             // Create initial frame and push it on stack
-            Stack.Push(new Frame(GetInitialProgramCounter()));
+            Stack.Push(new Frame(GetWord(Buffer, Header.InitialPc)));
 
             // TODO create window
 
@@ -81,14 +90,10 @@ namespace csifi
             do
             {
                 var f = Stack.Pop();
-                Running = f.Execute();
+                Running = f.Execute(Buffer, _globals, _objectTable, _dictionary);
 
             } while (Running);
         }
-
-        private int GetInitialProgramCounter()
-        {
-            return 0;
-        }
+     
     }
 }

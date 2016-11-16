@@ -8,12 +8,14 @@ namespace csifi
 {
     public class Entry
     {
+        public int Index { get; set; }
         public int Start { get; set; }        
         public string Value { get; set; }
         public Text Text { get; set; }
 
-        public Entry(int start, string value, Text text)
+        public Entry(int index, int start, string value, Text text)
         {
+            Index = index;
             Start = start;
             Value = value;
             Text = text;
@@ -57,10 +59,26 @@ namespace csifi
                 var e = (j*dl) + ds;
                 var text = new Text(GetWord(buffer, e));
                 text.AddCharacters(GetWord(buffer, e + 2));
-                Entries.Add(new Entry(e, text.GetValue(), text));
+                Entries.Add(new Entry(j, e, text.GetValue(), text));
             }
 
             return true;
+        }
+
+        public int Lookup(string word)
+        {
+            // Only the first six characters are stored in the dictionary
+            var w = word.Substring(0, 6);
+
+            foreach (var e in Entries)
+            {
+                if (e.Value.Equals(w, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return e.Index;
+                }
+            }
+
+            return -1;
         }
     }
 }

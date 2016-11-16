@@ -8,6 +8,44 @@ using NLog;
 
 namespace csifi
 {
+    public class Globals : MemoryReader
+    {
+        public const int Count = 240;
+
+        private readonly int _start;
+        private List<int> _variables;
+
+        public Globals(int start)
+        {
+            _start = start;
+            _variables = new List<int>();
+        }
+
+        public bool Init(byte[] buffer)
+        {
+            var offset = 0;
+            for (var i = 0; i < Count; i++)
+            {
+                _variables.Add(GetWord(buffer, _start + offset));
+                offset += 2;
+            }
+
+            return true;
+        }
+
+        public int Get(int index)
+        {
+            return _variables[index];
+        }
+
+        public void Set(int index, int value)
+        {
+            _variables[index] = value;
+        }
+
+    }
+
+
     public class AbbreviationTable : MemoryReader
     {
         // V3+
