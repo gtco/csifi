@@ -37,7 +37,7 @@ namespace csifi
         }
     }
 
-    public class Instruction : MemoryReader
+    public class Instruction : MemoryReader, IEquatable<Instruction>
     {
         public int Opcode { get; set; }
         public InstructionType Type { get; set; }
@@ -45,21 +45,16 @@ namespace csifi
         public int PC { get; set; }
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        private InstructionSet _instructionSet;
-
-
         public Instruction(int opcode)
         {
             Opcode = opcode;
             Operands = new List<Operand>();
-            _instructionSet = new InstructionSet();
         }
 
-        public Instruction(int opcode, InstructionType type)
+        public Instruction(int opcode, InstructionType instructionType)
         {
             Opcode = opcode;
-            Type = type;
-            _instructionSet = new InstructionSet();
+            Type = instructionType;
             Operands = new List<Operand>();
         }
 
@@ -127,12 +122,6 @@ namespace csifi
             return true;
         }
 
-        public void Invoke(Frame frame, Globals globals, ObjectTable objectTable, Dictionary dictionary)
-        {
-            var f = _instructionSet.Functions[this];
-            f.Invoke(this, frame, globals, objectTable, dictionary);
-        }
-
         private bool ReadTwoOperands(byte[] buffer)
         {
             int op1 = GetByte(buffer, PC++);
@@ -176,6 +165,20 @@ namespace csifi
             return false;
         }
 
+        public bool Equals(Instruction other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Opcode == other.Opcode && Type == other.Type;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (Opcode*397) ^ (int) Type;
+            }
+        }
     }
 
 }
