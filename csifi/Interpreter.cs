@@ -134,7 +134,7 @@ namespace csifi
             _functions.Add(new Instruction(0X12, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X13, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X14, InstructionType.TwoOp), Add);
-            _functions.Add(new Instruction(0X15, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X15, InstructionType.TwoOp), Sub);
             _functions.Add(new Instruction(0X16, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X17, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X18, InstructionType.TwoOp), NotImplemented);
@@ -143,7 +143,7 @@ namespace csifi
             _functions.Add(new Instruction(0X1B, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X1C, InstructionType.TwoOp), NotImplemented);
 
-            _functions.Add(new Instruction(0X00, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X00, InstructionType.OneOp), JumpZero);
             _functions.Add(new Instruction(0X01, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X02, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X03, InstructionType.OneOp), NotImplemented);
@@ -220,7 +220,7 @@ namespace csifi
             }
             else if (index < 0xff)
             {
-                _globals.Set(index, value);
+                _globals.Set(index - 16, value);
             }
             else
             {
@@ -261,13 +261,20 @@ namespace csifi
 
         private Frame Add(Instruction i, Frame f)
         {
-            var a = GetValue(i.Operands[0], f);
-            var b = GetValue(i.Operands[1], f);
-
-            var sum = (a + b) % 0x10000;
+            var sum = (GetValue(i.Operands[0], f) + GetValue(i.Operands[1], f)) % 0x10000;
             int dest = f.GetByte(Buffer, f.PC++);
-            f.SetLocal(dest, sum);
+            SaveResult(dest, sum, f);
             Logger.Debug($"ADD: {dest} = {sum}");
+            f.PrintLocals();
+            return f;
+        }
+
+        private Frame Sub(Instruction i, Frame f)
+        {
+            var difference = (GetValue(i.Operands[0], f) - GetValue(i.Operands[1], f)) % 0x10000;
+            int dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, difference, f);
+            Logger.Debug($"SUB: {dest} = {difference}");
             f.PrintLocals();
             return f;
         }
@@ -325,6 +332,20 @@ namespace csifi
             return DoBranch(eq, condt, offset, i, f);
         }
 
+        public Frame JumpZero(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            /*
+             * If bit 7 of the first byte is 0, a branch occurs on false; if 1, then
+             * branch is on true.
+             */
+            var condt = ((b & 0x80) == 0x80);
+            var offset = GetBranchOffset(b, f);
+            var v = GetValue(i.Operands[0], f) & 0xff;
+            Logger.Debug("JZ, v = " + v);
+            var eq = (v == 0);
+            return DoBranch(eq, condt, offset, i, f);
+        }
 
         public int GetBranchOffset(int control, Frame f)
         {
