@@ -16,7 +16,8 @@ namespace csifi
 
         public static string LowerCase = " ^^^^^abcdefghijklmnopqrstuvwxyz";
         public static string UpperCase = " ^^^^^ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        public static string Punctuation = " ^^^^^^^0123456789.,!?_#’\"/\\-:()";
+        public static string Punctuation = " ^^^^^^~0123456789.,!?_#’\"/\\-:()";
+
         public static string[] CharacterMap = { LowerCase, UpperCase, Punctuation };
 
         public byte Value { get; }
@@ -28,7 +29,7 @@ namespace csifi
 
         public char DecodeCharacter(int alphabet)
         {
-            return CharacterMap[alphabet][Value];
+            return (alphabet == Alphabet2 && Value == 7) ? '\n' : CharacterMap[alphabet][Value];
         }
 
         public override bool Equals(object obj)
@@ -84,9 +85,9 @@ namespace csifi
         {
             var alphabet = Character.Alphabet0;
             var tableOffset = 0;
-            int start = 0;
-
-            string str = "";
+            var start = 0;
+            var str = "";
+            var abbreviation = false;
 
             if (Characters[0].Value == 5 && Characters[1].Value == 6 && Characters.Count >=5)
             {
@@ -95,14 +96,17 @@ namespace csifi
                 start = 4;
             }
 
-            for (int i = start; i < Characters.Count; i++)
+            for (var i = start; i < Characters.Count; i++)
             {
-                if (abbreviationTable != null && alphabet == Character.Alphabet2)
+                if (abbreviation && alphabet == Character.Alphabet2 && abbreviationTable != null )
                 {
                     var n = tableOffset + Characters[i].Value;
-                    str += abbreviationTable.GetAbbreviation(n);
+                    var abbr = abbreviationTable.GetAbbreviation(n);
+                    str += abbr;
+
                     tableOffset = 0;
                     alphabet = Character.Alphabet0;
+                    abbreviation = false;
                 }
                 else 
                 {
@@ -110,18 +114,22 @@ namespace csifi
                     {
                         case 0:
                             str += " ";
+                            alphabet = Character.Alphabet0;
                             break;
                         case 1:
                             tableOffset = 0;
                             alphabet = Character.Alphabet2;
+                            abbreviation = true;
                             break;
                         case 2:
                             tableOffset = 32;
                             alphabet = Character.Alphabet2;
+                            abbreviation = true;
                             break;
                         case 3:
                             tableOffset = 64;
                             alphabet = Character.Alphabet2;
+                            abbreviation = true;
                             break;
                         case 4:
                             alphabet = Character.Alphabet1;

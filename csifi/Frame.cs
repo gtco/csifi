@@ -32,6 +32,7 @@ namespace csifi
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         const int DefVal = int.MaxValue / 2;
+        private Guid _guid;
 
 
         public Frame(int pc)
@@ -48,11 +49,12 @@ namespace csifi
 
             InvocationMethod = InvocationMethod.Function;
             ArgumentCount = 0;
+            _guid = new Guid();
         }
 
         public Instruction GetNextInstruction(byte[] buffer)
         {
-            Logger.Debug($"{PC:X4}");
+            Logger.Debug($"pc: {PC} ({PC:X4})");
             var i = new Instruction(GetByte(buffer, PC++));
 
             if (!i.Read(PC, buffer))
@@ -99,12 +101,12 @@ namespace csifi
                     //TODO check out of bounds errors
                     var v = frame.GetValueForOperand(operands[i]);
                     SetLocal(i, v);
-                    Logger.Debug($"[" + i + "] " + v);
+                    Logger.Debug($"Copy [{i}] {v}");
                 }
                 else
                 {
                     SetLocal(i, localValue);
-                    Logger.Debug($"[" + i + "] " + localValue + " (local value)");
+                    Logger.Debug($"Copy [{i}] {localValue} (local value)");
                 }
             }
         }

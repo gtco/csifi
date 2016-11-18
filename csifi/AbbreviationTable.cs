@@ -74,7 +74,10 @@ namespace csifi
 
         public string GetAbbreviation(int index)
         {
-            return _list[index].GetValue();
+            if (index < 0)
+                return "";
+
+            return index >= _list.Count ? "" : _list[index].GetValue();
         }
 
         public Text LoadAbbreviation(byte[] buffer, int index)

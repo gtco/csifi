@@ -3,25 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NLog;
 
 namespace csifi
 {
     public class GameObject : MemoryReader
     {
         private byte[] _attributes;
-        private int _parent;
-        private int _sibling;
-        private int _child;
+        public int Parent { get; set; }
+        public int Sibling { get; set; }
+        public int Child { get; set; }
+        public int Index { get; }
         public int Header { get; }
         public string Name { get; set; }
         public Dictionary<int, List<int>> Properties { get; set; }
 
-        public GameObject(byte[] attributes, int parent, int sibling, int child, int header)
+        public GameObject(int index, byte[] attributes, int parent, int sibling, int child, int header)
         {
             _attributes = attributes;
-            _parent = parent;
-            _sibling = sibling;
-            _child = child;
+            Parent = parent;
+            Sibling = sibling;
+            Child = child;
+            Index = index;
             Header = header;
             Name = "";
         }
@@ -67,6 +70,33 @@ namespace csifi
             Properties = dictionary;
             return true;
         }
+
+        public bool TestAttribute(int index)
+        {
+            if (_attributes != null && _attributes.Length > index)
+            {
+                return (_attributes[index] == 1);
+            }
+
+            return false;
+        }
+
+        public void AddChild(GameObject obj)
+        {
+            if (Child == 0)
+            {
+                Child = obj.Index;
+                obj.Parent = Index;
+                obj.Sibling = 0;
+            }
+            else
+            {
+                var s = Child;
+                Child = obj.Index;
+                obj.Parent = Index;
+                obj.Sibling = s;
+            }
+        }
     }
 
     public class ObjectTable : MemoryReader
@@ -80,13 +110,22 @@ namespace csifi
         private int[] _defaultProperties;
 
         private List<GameObject> _objects;
-
-
+        
         public ObjectTable(int start)
         {
             _start = start;
             _defaultProperties = new int[PropertyDefaultCount];
             _objects = new List<GameObject>();
+        }
+
+        public GameObject GetObject(int index)
+        {
+            return _objects[index];
+        }
+
+        public int[] GetDefaultProperties()
+        {
+            return _defaultProperties;
         }
 
         public bool Init(byte[] buffer, AbbreviationTable abbreviationTable)
@@ -122,7 +161,7 @@ namespace csifi
                     int child = GetByte(buffer, attr + 6);
                     int header = GetWord(buffer, attr + 7);
 
-                    var obj = new GameObject(attributes, parent, sibling, child, header);
+                    var obj = new GameObject(j, attributes, parent, sibling, child, header);
 
                     if (obj.Init(buffer, abbreviationTable))
                     {

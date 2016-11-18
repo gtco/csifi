@@ -75,16 +75,15 @@ namespace csifi
                     Type = InstructionType.Var;
                     // VAR count                    
                     Logger.Debug($"{Opcode:X2} Variable : VAR count");
-                    var b = ReadVariableOperands(buffer);
                 }
                 else
                 {
                     Type = InstructionType.TwoOp;
                     // 2OP count
                     Logger.Debug($"{Opcode:X2} Variable : 2OP count");
-                    var b = ReadTwoOperands(buffer);
                 }
 
+                ReadVariableOperands(buffer);
                 Opcode = Opcode & 0x1f;
 
             }
@@ -103,7 +102,15 @@ namespace csifi
                     Type = InstructionType.OneOp;
                     // 1OP count
                     Logger.Debug($"{Opcode:X2} Short : 1OP count");
-                    Operands.Add(new Operand(operandType, GetByte(buffer, PC++)));
+                    if (operandType == OperandType.LargeConst)
+                    {
+                        Operands.Add(new Operand(operandType, GetWord(buffer, PC)));
+                        PC += 2;
+                    }
+                    else
+                    {
+                        Operands.Add(new Operand(operandType, GetByte(buffer, PC++)));
+                    }
                 }
 
                 Opcode = Opcode & 0xf;
@@ -125,6 +132,9 @@ namespace csifi
         private bool ReadTwoOperands(byte[] buffer)
         {
             int op1 = GetByte(buffer, PC++);
+
+
+
             int op2 = GetByte(buffer, PC++);
 
             Operands.Add((Opcode & 0x040) == 0 ? new Operand(OperandType.SmallConst, op1) : new Operand(OperandType.Variable, op1));
