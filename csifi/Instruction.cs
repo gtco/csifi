@@ -74,13 +74,13 @@ namespace csifi
                 {
                     Type = InstructionType.Var;
                     // VAR count                    
-                    Logger.Debug($"{Opcode:X2} Variable : VAR count");
+  //                  Logger.Debug($"{Opcode:X2} Variable : VAR count");
                 }
                 else
                 {
                     Type = InstructionType.TwoOp;
                     // 2OP count
-                    Logger.Debug($"{Opcode:X2} Variable : 2OP count");
+  //                  Logger.Debug($"{Opcode:X2} Variable : 2OP count");
                 }
 
                 ReadVariableOperands(buffer);
@@ -95,13 +95,13 @@ namespace csifi
                 {
                     Type = InstructionType.ZeroOp;
                     // 0OP count
-                    Logger.Debug($"{Opcode:X2} Short : 0OP count");
+  //                  Logger.Debug($"{Opcode:X2} Short : 0OP count");
                 }
                 else
                 {
                     Type = InstructionType.OneOp;
                     // 1OP count
-                    Logger.Debug($"{Opcode:X2} Short : 1OP count");
+ //                   Logger.Debug($"{Opcode:X2} Short : 1OP count");
                     if (operandType == OperandType.LargeConst)
                     {
                         Operands.Add(new Operand(operandType, GetWord(buffer, PC)));
@@ -120,7 +120,7 @@ namespace csifi
                 Type = InstructionType.TwoOp;
                 // Form: Long
                 // 2OP Count
-                Logger.Debug($"{Opcode:X2} Long : 2OP count");
+//                Logger.Debug($"{Opcode:X2} Long : 2OP count");
                 var b = ReadTwoOperands(buffer);
 
                 Opcode = Opcode & 0x1f;
@@ -189,6 +189,12 @@ namespace csifi
                 return (Opcode*397) ^ (int) Type;
             }
         }
+
+//        public override string ToString()
+//        {
+//            return null;
+//        }
+
     }
 
 }

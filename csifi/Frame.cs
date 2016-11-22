@@ -54,7 +54,7 @@ namespace csifi
 
         public Instruction GetNextInstruction(byte[] buffer)
         {
-            Logger.Debug($"pc: {PC} ({PC:X4})");
+//            Logger.Debug($"pc: {PC} ({PC:X4})");
             var i = new Instruction(GetByte(buffer, PC++));
 
             if (!i.Read(PC, buffer))

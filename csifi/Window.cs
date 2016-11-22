@@ -12,7 +12,7 @@ namespace csifi
         {
             foreach (var s in strings)
             {
-                Console.WriteLine(s);
+                Console.Write(s);
             }
         }
 

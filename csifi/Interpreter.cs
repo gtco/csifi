@@ -93,12 +93,19 @@ namespace csifi
         public void Run()
         {
             Running = true;
-            int c = 0;
+            int count = 0;
 
             do
             {
                 var frame = Stack.Peek();
-                Logger.Debug($"count:{++c} pc:{frame.PC}");
+                Logger.Debug($"count:{++count} pc:{frame.PC} ({frame.PC:X4})");
+
+
+                if (count == 213)
+                {
+                    var dbg = 1;
+                }
+
                 var i =  frame.GetNextInstruction(Buffer);
 
                 if (i != null)
@@ -121,20 +128,20 @@ namespace csifi
             _functions.Add(new Instruction(0X01, InstructionType.TwoOp), JumpEqual);
             _functions.Add(new Instruction(0X02, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X03, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X04, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X05, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X06, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X04, InstructionType.TwoOp), DecChk);
+            _functions.Add(new Instruction(0X05, InstructionType.TwoOp), IncChk);
+            _functions.Add(new Instruction(0X06, InstructionType.TwoOp), Jin);
             _functions.Add(new Instruction(0X07, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X08, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X09, InstructionType.TwoOp), And);
             _functions.Add(new Instruction(0X0A, InstructionType.TwoOp), TestAttribute);
-            _functions.Add(new Instruction(0X0B, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X0C, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X0B, InstructionType.TwoOp), SetAttribute);
+            _functions.Add(new Instruction(0X0C, InstructionType.TwoOp), ClearAttribute);
             _functions.Add(new Instruction(0X0D, InstructionType.TwoOp), Store);
             _functions.Add(new Instruction(0X0E, InstructionType.TwoOp), InsertObject);
             _functions.Add(new Instruction(0X0F, InstructionType.TwoOp), Loadw);
             _functions.Add(new Instruction(0X10, InstructionType.TwoOp), Loadb);
-            _functions.Add(new Instruction(0X11, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X11, InstructionType.TwoOp), GetProp);
             _functions.Add(new Instruction(0X12, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X13, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X14, InstructionType.TwoOp), Add);
@@ -149,15 +156,15 @@ namespace csifi
 
             _functions.Add(new Instruction(0X00, InstructionType.OneOp), JumpZero);
             _functions.Add(new Instruction(0X01, InstructionType.OneOp), NotImplemented);
-            _functions.Add(new Instruction(0X02, InstructionType.OneOp), NotImplemented);
-            _functions.Add(new Instruction(0X03, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X02, InstructionType.OneOp), GetChild);
+            _functions.Add(new Instruction(0X03, InstructionType.OneOp), GetParent);
             _functions.Add(new Instruction(0X04, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X05, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X06, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X07, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X08, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X09, InstructionType.OneOp), NotImplemented);
-            _functions.Add(new Instruction(0X0A, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X0A, InstructionType.OneOp), PrintObject);
             _functions.Add(new Instruction(0X0B, InstructionType.OneOp), Return);
             _functions.Add(new Instruction(0X0C, InstructionType.OneOp), Jump);
             _functions.Add(new Instruction(0X0D, InstructionType.OneOp), NotImplemented);
@@ -186,11 +193,11 @@ namespace csifi
             _functions.Add(new Instruction(0x02, InstructionType.Var), NotImplemented);
             _functions.Add(new Instruction(0x03, InstructionType.Var), PutProp);
             _functions.Add(new Instruction(0x04, InstructionType.Var), NotImplemented);
-            _functions.Add(new Instruction(0x05, InstructionType.Var), NotImplemented);
+            _functions.Add(new Instruction(0x05, InstructionType.Var), PrintChar);
             _functions.Add(new Instruction(0x06, InstructionType.Var), PrintNum);
             _functions.Add(new Instruction(0x07, InstructionType.Var), NotImplemented);
-            _functions.Add(new Instruction(0x08, InstructionType.Var), NotImplemented);
-            _functions.Add(new Instruction(0x09, InstructionType.Var), NotImplemented);
+            _functions.Add(new Instruction(0x08, InstructionType.Var), Push);
+            _functions.Add(new Instruction(0x09, InstructionType.Var), Pull);
             _functions.Add(new Instruction(0X0A, InstructionType.Var), NotImplemented);
             _functions.Add(new Instruction(0X0B, InstructionType.Var), NotImplemented);
             _functions.Add(new Instruction(0X0C, InstructionType.Var), NotImplemented);
@@ -354,8 +361,8 @@ namespace csifi
             var nextFrame = Stack.Peek();
             int dest = GetByte(Buffer, nextFrame.PC++);
             Logger.Debug("RTRUE, dest " + dest + " value 1 ");
-            SaveResult(dest, 1, f);
-            f.PrintLocals();
+            SaveResult(dest, 1, nextFrame);
+            nextFrame.PrintLocals();
             return nextFrame;
         }
 
@@ -365,8 +372,8 @@ namespace csifi
             var nextFrame = Stack.Peek();
             int dest = GetByte(Buffer, nextFrame.PC++);
             Logger.Debug("RFALSE, dest " + dest + " value 0 ");
-            SaveResult(dest, 0, f);
-            f.PrintLocals();
+            SaveResult(dest, 0, nextFrame);
+            nextFrame.PrintLocals();
             return nextFrame;
         }
 
@@ -403,7 +410,7 @@ namespace csifi
              * If bit 7 of the first byte is 0, a branch occurs on false; if 1, then
              * branch is on true.
              */
-            var condt = ((b & 0x80) == 0x80);
+        var condt = ((b & 0x80) == 0x80);
             var offset = GetBranchOffset(b,f);
             var a = GetValue(i.Operands[0], f) & 0xff;
             Logger.Debug("JE : a = " + a);
@@ -414,13 +421,13 @@ namespace csifi
             {
 
                 var b2 = GetValue(i.Operands[2], f);
-                Logger.Debug("JE : b2 = " + a);
+                Logger.Debug("JE : b2 = " + b2);
                 eq = (a == b2);
             }
             if (!eq && i.Operands.Count > 3)
             {
                 var b3 = GetValue(i.Operands[3], f);
-                Logger.Debug("JE : b3 = " + a);
+                Logger.Debug("JE : b3 = " + b3);
                 eq = (a == b3);
             }
 
@@ -439,6 +446,37 @@ namespace csifi
             var v = GetValue(i.Operands[0], f) & 0xff;
             Logger.Debug("JZ, v = " + v);
             var eq = (v == 0);
+            return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame IncChk(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            bool condt = ((b & 0x80) == 0x80);
+            int offset = GetBranchOffset(b,f);
+            int local = GetValue(i.Operands[0], f); 
+            int n = f.GetLocal(local);
+            n = n + 1;
+            n &= 0xffff;
+            SaveResult(local, n, f);
+
+            int j = GetValue(i.Operands[1], f); 
+            bool eq = n > j;
+            return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame DecChk(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            bool condt = ((b & 0x80) == 0x80);
+            int offset = GetBranchOffset(b, f);
+            int local = GetValue(i.Operands[0], f);
+            int n = f.GetLocal(local);
+            n = n - 1;
+            SaveResult(local, n, f);
+
+            int j = GetValue(i.Operands[1], f); 
+            bool eq = n > j;
             return Branch(eq, condt, offset, i, f);
         }
 
@@ -490,7 +528,7 @@ namespace csifi
 
         private Frame CallFv(Instruction instruction, Frame currentFrame)
         {
-            var pc = (instruction.Operands[0].Value) * 2;
+            var pc = GetValue(instruction.Operands[0], currentFrame) * 2;
 
             if (pc == 0)
             {
@@ -500,11 +538,29 @@ namespace csifi
 
             int c = GetByte(Buffer, pc++);
             Logger.Debug($"call_fv: n {(instruction.Operands.Count - 1)}, L {c}");
+
             var f = new Frame(pc);
             Logger.Debug($"CALL : From ${currentFrame.PC} To {f.PC - 1}, Locals [{c}]");
-            f.CopyLocals(Buffer, c, currentFrame, instruction.Operands);
-            Stack.Push(f);
+            for (var i = 1; i <= c; i++)
+            {
+                var localValue = GetWord(Buffer, f.PC);
+                f.PC += 2;
 
+                if (i < instruction.Operands.Count)
+                {
+                    var v = GetValue(instruction.Operands[i], currentFrame);
+                    f.SetLocal(i, v);
+                    Logger.Debug($"Copy [{i}] {v}");
+                }
+                else
+                {
+                    f.SetLocal(i, localValue);
+                    Logger.Debug($"Copy [{i}] {localValue} (local value)");
+                }
+            }
+
+            Stack.Push(f);
+           
             return Stack.Peek();
         }
 
@@ -527,7 +583,7 @@ namespace csifi
             var obj = GetValue(instruction.Operands[0], f) & 0xff;
             var value = GetValue(instruction.Operands[1], f);
 //            bool eq = table.testAttribute(obj, value);
-            var o = _objectTable.GetObject(obj - 1);
+            var o = _objectTable.GetObject(obj);
             var eq = o.TestAttribute(value);
             var b = GetByte(Buffer, f.PC++);
 
@@ -542,6 +598,28 @@ namespace csifi
             Logger.Debug($"TEST_ATTR : Testing Object = {o.Name}, Attribute = {value}, Result = {eq}, Condt = {condt}, Destination = {addr}");
 
             return Branch(eq, condt, offset, instruction, f);
+        }
+
+        public Frame SetAttribute(Instruction instruction, Frame f)
+        {
+            var obj = GetValue(instruction.Operands[0], f) & 0xff;
+            var index = GetValue(instruction.Operands[1], f);
+            var o = _objectTable.GetObject(obj);
+
+            o.SetAttribute(index);
+
+            return f;
+        }
+
+        public Frame ClearAttribute(Instruction instruction, Frame f)
+        {
+            var obj = GetValue(instruction.Operands[0], f) & 0xff;
+            var index = GetValue(instruction.Operands[1], f);
+            var o = _objectTable.GetObject(obj);
+
+            o.ClearAttribute(index);
+
+            return f;
         }
 
         public Frame NewLine(Instruction instruction, Frame f)
@@ -559,6 +637,24 @@ namespace csifi
             return f;
         }
 
+        public Frame PrintObject(Instruction instruction, Frame f)
+        {
+            int i = GetValue(instruction.Operands[0], f);
+            string n = _objectTable.GetObject(i).Name;
+            Logger.Debug("print_obj=" + n);
+            _window.Print(n);
+            return f;
+        }
+
+        public Frame PrintChar(Instruction i, Frame f)
+        {
+            int n = GetValue(i.Operands[0], f);
+            char c = (char)n;
+            Logger.Debug("print_char=" + c);
+            _window.Print(c.ToString());
+            return f;
+        }
+
         public Frame PrintNum(Instruction i, Frame f)
         {
             var n = GetValue(i.Operands[0], f);
@@ -567,7 +663,6 @@ namespace csifi
             _window.Print(s);
             return f;
         }
-
 
         public Frame Print(Instruction i, Frame f)
         {
@@ -588,6 +683,82 @@ namespace csifi
             Logger.Debug("print_text=" + s);
 
             return f;
+        }
+
+        public Frame Push(Instruction i, Frame f)
+        {
+            var n = GetValue(i.Operands[0], f);
+            SaveResult(0, n, f);
+            return f;
+        }
+
+        public Frame Pull(Instruction i, Frame f)
+        {
+            var n = f.GetLocal(0);
+            var local = GetValue(i.Operands[0], f);
+            SaveResult(local, n, f);
+            return f;
+        }
+
+        public Frame Jin(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            var condt = ((b & 0x80) == 0x80);
+            var offset = GetBranchOffset(b, f);
+            var child = GetValue(i.Operands[0], f);
+            var parent = GetValue(i.Operands[1], f);
+            var eq = _objectTable.IsParent(parent, child);
+            Logger.Debug("JIN: child = " + child + ", parent = " + parent + ", isParent = " + eq);
+            return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame GetParent(Instruction i, Frame f)
+        {
+            var index = GetValue(i.Operands[0], f);
+            var obj = _objectTable.GetObject(index);
+            var parent = _objectTable.GetObject(obj.Parent);
+            var dest = f.GetByte(Buffer, f.PC++);
+            Logger.Debug("GET_PARENT [" + obj.Name + "] -> [" + parent.Name + "]");
+            SaveResult(dest, obj.Parent, f);
+            return f;
+        }
+
+        public Frame GetProp(Instruction i, Frame f)
+        {
+            /*
+             * get_prop obj prop <result>� 2OP:$11
+                The result is the 1st word (if the property length is 2) or byte (if it is one) of property prop
+                on object obj, if it is present. Otherwise the result is the default property word stored in the
+                property defaults table. The result is unspecified if the property is present but does not have
+                length 1 or 2.	
+             */
+            var obj = GetValue(i.Operands[0], f);
+            var prop = GetValue(i.Operands[1], f);
+            var o = _objectTable.GetObject(obj);
+
+            Logger.Debug("GET_PROP : Getting property [" + prop + "] for Object [" + obj + ":" + o.Name + "], Property");
+
+            var op = _objectTable.GetObjectProperty(obj, prop);
+            var dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, op,f);
+            return f;
+        }
+
+        public Frame GetChild(Instruction i, Frame f)
+        {
+            var index = GetValue(i.Operands[0], f);
+            var obj = _objectTable.GetObject(index);
+            var child = _objectTable.GetObject(obj.Child);
+            var dest = f.GetByte(Buffer, f.PC++);
+            Logger.Debug("GET_CHILD [" + obj.Name + "] -> [" + child.Name + "]");
+            SaveResult(dest, obj.Child, f);
+
+            int label = f.GetByte(Buffer, f.PC++);
+            bool condt = ((label & 0x80) == 0x80);
+            bool eq = obj.Child != 0;
+            int offset = GetBranchOffset(label,f);
+            Logger.Debug("GET_CHILD, condt = " + condt + ", eq = " + eq + ", offset = " + offset);
+            return Branch(eq, condt, offset, i, f);
         }
 
         private Frame NotImplemented(Instruction instruction, Frame currentFrame)

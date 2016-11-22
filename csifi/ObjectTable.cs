@@ -17,6 +17,7 @@ namespace csifi
         public int Header { get; }
         public string Name { get; set; }
         public Dictionary<int, List<int>> Properties { get; set; }
+        public char[] Attributes { get; set; }
 
         public GameObject(int index, byte[] attributes, int parent, int sibling, int child, int header)
         {
@@ -27,6 +28,12 @@ namespace csifi
             Index = index;
             Header = header;
             Name = "";
+            Attributes = new char[32];
+        }
+
+        public static GameObject Empty()
+        {
+            return new GameObject(0, new []{(byte)0x0}, 0,0,0,0);
         }
 
         public bool Init(byte[] buffer, AbbreviationTable abbreviationTable)
@@ -68,17 +75,48 @@ namespace csifi
             }
 
             Properties = dictionary;
+
+            LoadAttributes();
+
             return true;
+        }
+
+        private void LoadAttributes()
+        {
+            var s = "";
+
+            for (var n = 0; n < 4; n++)
+            {
+                s += Convert.ToString(_attributes[n], 2).PadLeft(8, '0');
+            }
+
+            Attributes = s.ToCharArray();
         }
 
         public bool TestAttribute(int index)
         {
-            if (_attributes != null && _attributes.Length > index)
+            if (Attributes != null && Attributes.Length > index)
             {
-                return (_attributes[index] == 1);
+                return Attributes[index] == '1';
             }
 
             return false;
+        }
+
+        public void SetAttribute(int index)
+        {
+            if (Attributes != null && Attributes.Length > index)
+            {
+                Attributes[index] = '1';
+            }
+        }
+
+        public void ClearAttribute(int index)
+        {
+            if (Attributes != null && Attributes.Length > index)
+            {
+                Attributes[index] = '0';
+            }
         }
 
         public void AddChild(GameObject obj)
@@ -110,12 +148,14 @@ namespace csifi
         private int[] _defaultProperties;
 
         private List<GameObject> _objects;
-        
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         public ObjectTable(int start)
         {
             _start = start;
             _defaultProperties = new int[PropertyDefaultCount];
             _objects = new List<GameObject>();
+            _objects.Add(GameObject.Empty());
         }
 
         public GameObject GetObject(int index)
@@ -138,13 +178,14 @@ namespace csifi
 
             bool done = false;
             int j = 0;
+            int n = 1;
 
             // loop through all objects
             while (!done && j < MaxObjects)
             { 
                 int attr = _start + (PropertyDefaultCount*2) + (j * ObjectLength);
 
-                if (_objects.Any() && (attr == _objects[0].Header))
+                if (_objects.Count > 1 && (attr == _objects[1].Header))
                 {
                     done = true;
                 }
@@ -161,7 +202,7 @@ namespace csifi
                     int child = GetByte(buffer, attr + 6);
                     int header = GetWord(buffer, attr + 7);
 
-                    var obj = new GameObject(j, attributes, parent, sibling, child, header);
+                    var obj = new GameObject(n++, attributes, parent, sibling, child, header);
 
                     if (obj.Init(buffer, abbreviationTable))
                     {
@@ -175,5 +216,41 @@ namespace csifi
             return true;
         }
 
+        public bool IsParent(int p, int c)
+        {
+            var child = _objects[c];
+            if (p == 0 && child.Parent == 0)
+            {
+                return true;
+            }
+
+            return (child.Parent == p);
+        }
+
+        public int GetObjectProperty(int obj, int prop)
+        {
+            var n = 0;
+            var o = _objects[obj];
+
+            if (o.Properties != null && o.Properties.ContainsKey(prop))
+            {
+                var list = o.Properties[prop];
+                if (list.Count > 1)
+                {
+                    //TODO check length of list
+                    n = (short)((list[0] << 8) & 0xff00) | (list[1] & 0xff);
+                }
+                else if (list.Count > 0)
+                {
+                    n = list[0];
+                }
+            }
+            else
+            {
+                n = _defaultProperties[prop];
+            }
+
+            return n;
+        }
     }
 }
