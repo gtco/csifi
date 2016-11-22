@@ -869,8 +869,45 @@ namespace csifi
 
         public Frame Sread(Instruction i, Frame f)
         {
-            Logger.Error($"SREAD [{i.Opcode:X2}] is not implemented.");
-            throw new NotImplementedException();
+            var input = GetValue(i.Operands[0], f);
+            var parse = GetValue(i.Operands[1], f);
+
+            var inputLimit = GetByte(Buffer, input);
+            var parseLimit = GetByte(Buffer, parse);
+
+            Logger.Debug($"SREAD, input = {input}:{inputLimit}, parse = {parse}:{parseLimit}");
+
+            InputBuffer ib = new InputBuffer(input, inputLimit);
+            ParseBuffer pb = new ParseBuffer(parse, parseLimit);
+
+            string s;
+            try
+            {
+                s = Console.ReadLine();
+                _window.NewLine();
+
+                if (string.IsNullOrEmpty(s))
+                {
+                    Logger.Error("SREAD, Input is null or empty");
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Debug(e.Message);
+                throw;
+            }
+
+            ib.Fill(s, Buffer);
+            ib.Tokenize(_dictionary.Separators);
+            pb.Fill(ib, _dictionary);
+
+            var view = new List<byte>();
+            for (int k = input; k < (input + inputLimit); k++)
+            {
+                view.Add(Buffer[k]);
+            }
+
+            return f;
         }
 
         private Frame NotImplemented(Instruction instruction, Frame currentFrame)
