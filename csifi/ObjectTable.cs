@@ -153,9 +153,10 @@ namespace csifi
         public ObjectTable(int start)
         {
             _start = start;
-            _defaultProperties = new int[PropertyDefaultCount];
+            _defaultProperties = new int[32];
             _objects = new List<GameObject>();
             _objects.Add(GameObject.Empty());
+            _defaultProperties[0] = int.MaxValue;
         }
 
         public GameObject GetObject(int index)
@@ -171,9 +172,9 @@ namespace csifi
         public bool Init(byte[] buffer, AbbreviationTable abbreviationTable)
         {
             // read default attributes
-            for (int i = 0; i < PropertyDefaultCount; i++)
+            for (int i = 0; i < 31; i++)
             {
-                _defaultProperties[i] = GetWord(buffer, _start + (i*2));
+                _defaultProperties[i+1] = GetWord(buffer, _start + (i*2));
             }
 
             bool done = false;

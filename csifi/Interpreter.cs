@@ -99,13 +99,6 @@ namespace csifi
             {
                 var frame = Stack.Peek();
                 Logger.Debug($"count:{++count} pc:{frame.PC} ({frame.PC:X4})");
-
-
-                if (count == 213)
-                {
-                    var dbg = 1;
-                }
-
                 var i =  frame.GetNextInstruction(Buffer);
 
                 if (i != null)
@@ -126,12 +119,12 @@ namespace csifi
         {
             _functions.Add(new Instruction(0X00, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X01, InstructionType.TwoOp), JumpEqual);
-            _functions.Add(new Instruction(0X02, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X03, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X02, InstructionType.TwoOp), Jl);
+            _functions.Add(new Instruction(0X03, InstructionType.TwoOp), Jg);
             _functions.Add(new Instruction(0X04, InstructionType.TwoOp), DecChk);
             _functions.Add(new Instruction(0X05, InstructionType.TwoOp), IncChk);
             _functions.Add(new Instruction(0X06, InstructionType.TwoOp), Jin);
-            _functions.Add(new Instruction(0X07, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X07, InstructionType.TwoOp), Test);
             _functions.Add(new Instruction(0X08, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X09, InstructionType.TwoOp), And);
             _functions.Add(new Instruction(0X0A, InstructionType.TwoOp), TestAttribute);
@@ -148,19 +141,19 @@ namespace csifi
             _functions.Add(new Instruction(0X15, InstructionType.TwoOp), Sub);
             _functions.Add(new Instruction(0X16, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X17, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X18, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X18, InstructionType.TwoOp), Mod);
             _functions.Add(new Instruction(0X19, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X1A, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X1B, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X1C, InstructionType.TwoOp), NotImplemented);
 
             _functions.Add(new Instruction(0X00, InstructionType.OneOp), JumpZero);
-            _functions.Add(new Instruction(0X01, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X01, InstructionType.OneOp), GetSibling);
             _functions.Add(new Instruction(0X02, InstructionType.OneOp), GetChild);
             _functions.Add(new Instruction(0X03, InstructionType.OneOp), GetParent);
             _functions.Add(new Instruction(0X04, InstructionType.OneOp), NotImplemented);
-            _functions.Add(new Instruction(0X05, InstructionType.OneOp), NotImplemented);
-            _functions.Add(new Instruction(0X06, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X05, InstructionType.OneOp), Inc);
+            _functions.Add(new Instruction(0X06, InstructionType.OneOp), Dec);
             _functions.Add(new Instruction(0X07, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X08, InstructionType.OneOp), NotImplemented);
             _functions.Add(new Instruction(0X09, InstructionType.OneOp), NotImplemented);
@@ -179,7 +172,7 @@ namespace csifi
             _functions.Add(new Instruction(0X05, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X06, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X07, InstructionType.ZeroOp), NotImplemented);
-            _functions.Add(new Instruction(0X08, InstructionType.ZeroOp), NotImplemented);
+            _functions.Add(new Instruction(0X08, InstructionType.ZeroOp), RetPopped);
             _functions.Add(new Instruction(0X09, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X0A, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X0B, InstructionType.ZeroOp), NewLine);
@@ -192,7 +185,7 @@ namespace csifi
             _functions.Add(new Instruction(0x01, InstructionType.Var), Storew);
             _functions.Add(new Instruction(0x02, InstructionType.Var), NotImplemented);
             _functions.Add(new Instruction(0x03, InstructionType.Var), PutProp);
-            _functions.Add(new Instruction(0x04, InstructionType.Var), NotImplemented);
+            _functions.Add(new Instruction(0x04, InstructionType.Var), Sread);
             _functions.Add(new Instruction(0x05, InstructionType.Var), PrintChar);
             _functions.Add(new Instruction(0x06, InstructionType.Var), PrintNum);
             _functions.Add(new Instruction(0x07, InstructionType.Var), NotImplemented);
@@ -276,7 +269,7 @@ namespace csifi
             int dest = f.GetByte(Buffer, f.PC++);
             SaveResult(dest, sum, f);
             Logger.Debug($"ADD: {dest} = {sum}");
-            f.PrintLocals();
+            //f.PrintLocals();
             return f;
         }
 
@@ -286,7 +279,7 @@ namespace csifi
             int dest = f.GetByte(Buffer, f.PC++);
             SaveResult(dest, difference, f);
             Logger.Debug($"SUB: {dest} = {difference}");
-            f.PrintLocals();
+            //f.PrintLocals();
             return f;
         }
 
@@ -355,6 +348,18 @@ namespace csifi
             return f;
         }
 
+        public Frame RetPopped(Instruction i, Frame f)
+        {
+            int value = f.GetLocal(0);
+            Stack.Pop();
+            var nextFrame = Stack.Peek();
+            int dest = GetByte(Buffer, nextFrame.PC++);
+            Logger.Debug("RET_POPPED : dest =" + dest + ", value = " + value);
+            SaveResult(dest, value, nextFrame);
+            nextFrame.PrintLocals();
+            return nextFrame;
+        }
+
         public Frame Rtrue(Instruction i, Frame f)
         {
             Stack.Pop();
@@ -410,7 +415,7 @@ namespace csifi
              * If bit 7 of the first byte is 0, a branch occurs on false; if 1, then
              * branch is on true.
              */
-        var condt = ((b & 0x80) == 0x80);
+            var condt = ((b & 0x80) == 0x80);
             var offset = GetBranchOffset(b,f);
             var a = GetValue(i.Operands[0], f) & 0xff;
             Logger.Debug("JE : a = " + a);
@@ -534,6 +539,7 @@ namespace csifi
             {
                 Logger.Error($"call_fv: raddr is null, pc = {currentFrame.PC}");
                 SaveResult(GetByte(Buffer, currentFrame.PC++), 0, currentFrame);
+                return currentFrame;
             }
 
             int c = GetByte(Buffer, pc++);
@@ -712,6 +718,55 @@ namespace csifi
             return Branch(eq, condt, offset, i, f);
         }
 
+        public Frame Jl(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            bool condt = ((b & 0x80) == 0x80);
+            int offset = GetBranchOffset(b, f);
+            int s = GetValue(i.Operands[0], f);
+            int t = GetValue(i.Operands[1], f);
+            Logger.Debug("JL : s=" + s + ", t=" + t);
+            bool eq = (s < t);
+            return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame Jg(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            bool condt = ((b & 0x80) == 0x80);
+            int offset = GetBranchOffset(b, f);
+            int s = GetValue(i.Operands[0], f);
+            int t = GetValue(i.Operands[1], f);
+            Logger.Debug("JG : s=" + s + ", t=" + t);
+            bool eq = (s > t);
+            return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame Mod(Instruction i, Frame f)
+        {
+            var s = GetValue(i.Operands[0], f);
+            var t = GetValue(i.Operands[1], f);
+            int dest = GetByte(Buffer, f.PC++);
+
+            var m = Math.Floor((decimal) s / (decimal) t);
+            int result = (int) ((s - t) * m);
+            result %= 0x10000;
+            SaveResult(dest, result, f);
+            return f;
+        }
+
+        public Frame Test(Instruction i, Frame f)
+        {
+            int b = GetByte(Buffer, f.PC++);
+            bool condt = ((b & 0x80) == 0x80);
+            int offset = GetBranchOffset(b, f);
+            int s = GetValue(i.Operands[0], f);
+            int t = GetValue(i.Operands[1], f);
+            Logger.Debug("TEST : s=" + s + ", t=" + t);
+            bool eq = (s & t) == t;
+            return Branch(eq, condt, offset, i, f);
+        }
+
         public Frame GetParent(Instruction i, Frame f)
         {
             var index = GetValue(i.Operands[0], f);
@@ -740,7 +795,7 @@ namespace csifi
 
             var op = _objectTable.GetObjectProperty(obj, prop);
             var dest = f.GetByte(Buffer, f.PC++);
-            SaveResult(dest, op,f);
+            SaveResult(dest, op, f);
             return f;
         }
 
@@ -759,6 +814,63 @@ namespace csifi
             int offset = GetBranchOffset(label,f);
             Logger.Debug("GET_CHILD, condt = " + condt + ", eq = " + eq + ", offset = " + offset);
             return Branch(eq, condt, offset, i, f);
+        }
+
+        public Frame GetSibling(Instruction i, Frame f)
+        {
+            var index = GetValue(i.Operands[0], f);
+            var obj = _objectTable.GetObject(index);
+            var sibling = _objectTable.GetObject(obj.Sibling);
+            var dest = f.GetByte(Buffer, f.PC++);
+            Logger.Debug("GET_SIBLING [" + obj.Name + "] -> [" + sibling.Name + "]");
+            SaveResult(dest, obj.Sibling, f);
+
+            int label = f.GetByte(Buffer, f.PC++);
+            bool condt = ((label & 0x80) == 0x80);
+            bool eq = obj.Sibling != 0;
+            int offset = GetBranchOffset(label, f);
+            Logger.Debug("GET_SIBLING, condt = " + condt + ", eq = " + eq + ", offset = " + offset);
+            return Branch(eq, condt, offset, i, f);
+        }
+
+
+        public Frame Inc(Instruction i, Frame f)
+        {
+            // TODO Increment the value of the variable with number var by 1, modulo $10000
+            var local = GetValue(i.Operands[0], f);
+            var n = f.GetLocal(local);
+            n = n + 1;
+
+            if (n > 0xffff)
+            {
+                Logger.Error($"INC Overflow at {f.PC}, local {local}");
+                n = n % 0x10000;
+            }
+
+            SaveResult(local, n, f);
+            return f;
+        }
+
+        public Frame Dec(Instruction i, Frame f)
+        {
+            var local = GetValue(i.Operands[0], f);
+            var n = f.GetLocal(local);
+            n = n - 1;
+
+            if (n > 0xffff)
+            {
+                Logger.Error($"DEC Overflow at {f.PC}, local {local}");
+                n = n % 0x10000;
+            }
+
+            SaveResult(local, n, f);
+            return f;
+        }
+
+        public Frame Sread(Instruction i, Frame f)
+        {
+            Logger.Error($"SREAD [{i.Opcode:X2}] is not implemented.");
+            throw new NotImplementedException();
         }
 
         private Frame NotImplemented(Instruction instruction, Frame currentFrame)
