@@ -84,7 +84,7 @@ namespace csifi
                     if (!string.IsNullOrEmpty(token))
                         Input.Tokens.Add(new InputToken(begin, 0, false, position++, token));
 
-                    // Ignore spaces, include other delimiters in token list
+                    // Ignore spaces, but include other delimiters in token list
                     if (c != ' ')
                     {
                         begin = i + 1;
@@ -103,9 +103,6 @@ namespace csifi
 
             if (!string.IsNullOrEmpty(token))
                 Input.Tokens.Add(new InputToken(begin, 0, true, position, token));
-
-            var dbg = 1;
-
         }
     }
 
@@ -156,12 +153,12 @@ namespace csifi
 
             foreach (var t in buffer.Input.Tokens)
             {
-                //TODO build block list          
+                t.DictionaryAddress = dictionary.GetEntryAddress(t.Text);
                 var item = new ParseBufferBlock(t.DictionaryAddress, (byte) t.Text.Length, (byte) t.Start);
                 _blocks.Add(item);
             }
 
-            _wcount = _blocks.Count + 1;
+            _wcount = _blocks.Count;
 
             return true;
         }

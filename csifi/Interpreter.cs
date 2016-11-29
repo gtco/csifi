@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NLog;
 
@@ -21,7 +22,7 @@ namespace csifi
         private AbbreviationTable _abbreviationTable;
         private Dictionary _dictionary;
         private ObjectTable _objectTable;
-        private Globals _globals;
+//        private Globals _globals;
         private Dictionary<Instruction, Func<Instruction, Frame, Frame>> _functions = new Dictionary<Instruction, Func<Instruction, Frame, Frame>>();
         private Window _window;
 
@@ -71,14 +72,6 @@ namespace csifi
                 return false;
             }
 
-            // load global variables
-            _globals = new Globals(GetWord(Buffer, Header.GlobalVar));
-            if (!_globals.Init(Buffer))
-            {
-                Logger.Error("Failed to load global variables");
-                return false;
-            }
-
             Logger.Debug($"Starting execution at {initialPc}");
 
             // Create initial frame and push it on stack
@@ -94,13 +87,12 @@ namespace csifi
         {
             Running = true;
             int count = 0;
-
+            
             do
             {
                 var frame = Stack.Peek();
                 Logger.Debug($"count:{++count} pc:{frame.PC} ({frame.PC:X4})");
                 var i =  frame.GetNextInstruction(Buffer);
-
                 if (i != null)
                 {
                     var func = _functions[i];
@@ -135,12 +127,12 @@ namespace csifi
             _functions.Add(new Instruction(0X0F, InstructionType.TwoOp), Loadw);
             _functions.Add(new Instruction(0X10, InstructionType.TwoOp), Loadb);
             _functions.Add(new Instruction(0X11, InstructionType.TwoOp), GetProp);
-            _functions.Add(new Instruction(0X12, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X12, InstructionType.TwoOp), GetPropAddr);
             _functions.Add(new Instruction(0X13, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X14, InstructionType.TwoOp), Add);
-            _functions.Add(new Instruction(0X15, InstructionType.TwoOp), Sub);
-            _functions.Add(new Instruction(0X16, InstructionType.TwoOp), NotImplemented);
-            _functions.Add(new Instruction(0X17, InstructionType.TwoOp), NotImplemented);
+            _functions.Add(new Instruction(0X15, InstructionType.TwoOp), Subtract);
+            _functions.Add(new Instruction(0X16, InstructionType.TwoOp), Multiply);
+            _functions.Add(new Instruction(0X17, InstructionType.TwoOp), Divide);
             _functions.Add(new Instruction(0X18, InstructionType.TwoOp), Mod);
             _functions.Add(new Instruction(0X19, InstructionType.TwoOp), NotImplemented);
             _functions.Add(new Instruction(0X1A, InstructionType.TwoOp), NotImplemented);
@@ -183,7 +175,7 @@ namespace csifi
 
             _functions.Add(new Instruction(0x00, InstructionType.Var), CallFv);
             _functions.Add(new Instruction(0x01, InstructionType.Var), Storew);
-            _functions.Add(new Instruction(0x02, InstructionType.Var), NotImplemented);
+            _functions.Add(new Instruction(0x02, InstructionType.Var), Storeb);
             _functions.Add(new Instruction(0x03, InstructionType.Var), PutProp);
             _functions.Add(new Instruction(0x04, InstructionType.Var), Sread);
             _functions.Add(new Instruction(0x05, InstructionType.Var), PrintChar);
@@ -216,6 +208,20 @@ namespace csifi
 
         }
 
+        public int GetGlobalVariable(int index)
+        {
+            var globalOffset = GetWord(Buffer, Header.GlobalVar);
+            var addr = globalOffset + (2 * (index - 16));
+            return GetWord(Buffer, addr);
+        }
+
+        public void SetGlobalVariable(int destination, int value)
+        {
+            var globalOffset = GetWord(Buffer, Header.GlobalVar);
+            var addr = globalOffset + (2 * (destination - 16));
+            SetWord(Buffer, addr, value);
+        }
+
         private void SaveResult(int index, int value, Frame f)
         {
             if (index < 0x10)
@@ -224,7 +230,7 @@ namespace csifi
             }
             else if (index < 0xff)
             {
-                _globals.Set(index - 16, value);
+                SetGlobalVariable(index, value);
             }
             else
             {
@@ -241,7 +247,7 @@ namespace csifi
 
             if (index < 0xff)
             {
-                return _globals.Get(index-16);
+                return GetGlobalVariable(index);
             }
 
             Logger.Error($"GetVariableValue failed, invalid index = {index}");
@@ -273,19 +279,50 @@ namespace csifi
             return f;
         }
 
-        private Frame Sub(Instruction i, Frame f)
+        private Frame Subtract(Instruction i, Frame f)
         {
             var difference = (GetValue(i.Operands[0], f) - GetValue(i.Operands[1], f)) % 0x10000;
             int dest = f.GetByte(Buffer, f.PC++);
             SaveResult(dest, difference, f);
-            Logger.Debug($"SUB: {dest} = {difference}");
+            Logger.Debug($"SUBTRACT: {dest} = {difference}");
             //f.PrintLocals();
             return f;
         }
 
+        private Frame Multiply(Instruction i, Frame f)
+        {
+            var result = (GetValue(i.Operands[0], f) * GetValue(i.Operands[1], f)) % 0x10000;
+            int dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, result, f);
+            Logger.Debug($"ADD: {dest} = {result}");
+            //f.PrintLocals();
+            return f;
+        }
+
+        private Frame Divide(Instruction i, Frame f)
+        {
+            var s = GetValue(i.Operands[0], f);
+            var t = GetValue(i.Operands[1], f);
+
+            if (t == 0)
+            {
+                Logger.Error($"DIVIDE: Cannot divide by zero {f.PC}");
+                throw new ArgumentException();
+            }
+
+            var result = (s / t) % 0x10000;
+            int dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, result, f);
+            Logger.Debug($"DIVIDE: {dest} = {result}");
+            //f.PrintLocals();
+            return f;
+        }
+
+
         public Frame Loadb(Instruction i, Frame f)
         {
-            int result = f.GetByte(Buffer, GetValue(i.Operands[0], f) + GetValue(i.Operands[1], f));
+            int addr = GetValue(i.Operands[0], f) + GetValue(i.Operands[1], f);
+            int result = f.GetByte(Buffer, addr);
             int dest = f.GetByte(Buffer, f.PC++);
             SaveResult(dest, result, f);
             Logger.Debug($"LOADB : result [{result}] dest [{dest}]");
@@ -329,6 +366,15 @@ namespace csifi
             return f;
         }
 
+        public Frame Storeb(Instruction i, Frame f)
+        {
+            var addr = GetValue(i.Operands[0], f) + GetValue(i.Operands[1], f);
+            var value = GetValue(i.Operands[2], f);
+            SetByte(Buffer, addr, value);
+            Logger.Debug($"STOREB : addr [{addr}], value [{value}]");
+            return f;
+        }
+
         public Frame PutProp(Instruction i, Frame f)
         {
             var objectNumber = GetValue(i.Operands[0], f);
@@ -336,9 +382,9 @@ namespace csifi
             var propertyValue = GetValue(i.Operands[2], f);
             var o = _objectTable.GetObject(objectNumber - 1);
 
-            if (o.Properties.ContainsKey(propertyNumber))
+            if (o.ObjectProperties.ContainsKey(propertyNumber))
             {
-                o.Properties[propertyNumber] = new List<int>() { propertyValue };
+                o.ObjectProperties[propertyNumber].List = new List<int>() { propertyValue };
             }
             else
             {
@@ -459,11 +505,12 @@ namespace csifi
             int b = GetByte(Buffer, f.PC++);
             bool condt = ((b & 0x80) == 0x80);
             int offset = GetBranchOffset(b,f);
-            int local = GetValue(i.Operands[0], f); 
-            int n = f.GetLocal(local);
+            int index = GetValue(i.Operands[0], f); 
+            int n = GetVariableValue(index, f);
+
             n = n + 1;
             n &= 0xffff;
-            SaveResult(local, n, f);
+            SaveResult(index, n, f);
 
             int j = GetValue(i.Operands[1], f); 
             bool eq = n > j;
@@ -475,13 +522,13 @@ namespace csifi
             int b = GetByte(Buffer, f.PC++);
             bool condt = ((b & 0x80) == 0x80);
             int offset = GetBranchOffset(b, f);
-            int local = GetValue(i.Operands[0], f);
-            int n = f.GetLocal(local);
+            int index = GetValue(i.Operands[0], f);
+            int n = GetVariableValue(index, f);
             n = n - 1;
-            SaveResult(local, n, f);
+            SaveResult(index, n, f);
 
             int j = GetValue(i.Operands[1], f); 
-            bool eq = n > j;
+            bool eq = n < j;
             return Branch(eq, condt, offset, i, f);
         }
 
@@ -528,7 +575,7 @@ namespace csifi
                 Logger.Debug(i.Opcode + " : Branch failed: eq=" + eq + ", condt=" + condt);
             }
 
-            return null;
+            return f;
         }
 
         private Frame CallFv(Instruction instruction, Frame currentFrame)
@@ -799,6 +846,20 @@ namespace csifi
             return f;
         }
 
+        public Frame GetPropAddr(Instruction i, Frame f)
+        {
+            var obj = GetValue(i.Operands[0], f);
+            var prop = GetValue(i.Operands[1], f);
+            var o = _objectTable.GetObject(obj);
+
+            Logger.Debug("GET_PROP_ADDR : Getting property [" + prop + "] for Object [" + obj + ":" + o.Name + "], Property");
+
+            var a = _objectTable.GetObjectPropertyAddress(obj, prop);
+            var dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, a, f);
+            return f;
+        }
+
         public Frame GetChild(Instruction i, Frame f)
         {
             var index = GetValue(i.Operands[0], f);
@@ -838,7 +899,7 @@ namespace csifi
         {
             // TODO Increment the value of the variable with number var by 1, modulo $10000
             var local = GetValue(i.Operands[0], f);
-            var n = f.GetLocal(local);
+            int n = GetVariableValue(local, f);
             n = n + 1;
 
             if (n > 0xffff)
@@ -854,7 +915,7 @@ namespace csifi
         public Frame Dec(Instruction i, Frame f)
         {
             var local = GetValue(i.Operands[0], f);
-            var n = f.GetLocal(local);
+            int n = GetVariableValue(local, f);
             n = n - 1;
 
             if (n > 0xffff)
@@ -900,14 +961,22 @@ namespace csifi
             ib.Fill(s, Buffer);
             ib.Tokenize(_dictionary.Separators);
             pb.Fill(ib, _dictionary);
+            pb.Write(Buffer);
 
-            var view = new List<byte>();
-            for (int k = input; k < (input + inputLimit); k++)
-            {
-                view.Add(Buffer[k]);
-            }
+            var inputView = CopyBuffer(input, inputLimit);
+            var parseView = CopyBuffer(parse, parseLimit);
 
             return f;
+        }
+
+        private List<byte> CopyBuffer(int start, int limit)
+        {
+            var b = new List<byte>();
+            for (int k = start; k < (start + limit); k++)
+            {
+                b.Add(Buffer[k]);
+            }
+            return b;;
         }
 
         private Frame NotImplemented(Instruction instruction, Frame currentFrame)

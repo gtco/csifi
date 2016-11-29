@@ -7,6 +7,14 @@ using NLog;
 
 namespace csifi
 {
+
+    public class ObjectProperty
+    {
+        public int Index { get; set; }
+        public int Address { get; set; }
+        public List<int> List { get; set; }
+    }
+
     public class GameObject : MemoryReader
     {
         private byte[] _attributes;
@@ -16,7 +24,9 @@ namespace csifi
         public int Index { get; }
         public int Header { get; }
         public string Name { get; set; }
-        public Dictionary<int, List<int>> Properties { get; set; }
+        //        public Dictionary<int, List<int>> Properties { get; set; }
+         public Dictionary<int, ObjectProperty> ObjectProperties { get; set; }
+
         public char[] Attributes { get; set; }
 
         public GameObject(int index, byte[] attributes, int parent, int sibling, int child, int header)
@@ -29,6 +39,7 @@ namespace csifi
             Header = header;
             Name = "";
             Attributes = new char[32];
+            ObjectProperties = new Dictionary<int, ObjectProperty>();
         }
 
         public static GameObject Empty()
@@ -56,7 +67,6 @@ namespace csifi
             }
 
             int x = GetByte(buffer, index);
-            Dictionary<int, List<int>> dictionary = new Dictionary<int, List<int>>();
 
             // load object properties
             while (x != 0)
@@ -65,16 +75,22 @@ namespace csifi
                 int id = x & 0x1f;
                 int numberOfBytes = (x >> 5) + 1;
 
+                ObjectProperties.Add(id, new ObjectProperty()
+                {
+                    //TODO Verify Address
+                    Address = index + 1,
+                    Index = id
+                });
+
                 for (int i = 0; i < numberOfBytes; i++)
                 {
                     list.Add(GetByte(buffer, ++index));
                 }
 
-                dictionary.Add(id, list);
+                ObjectProperties[id].List = list;
+
                 x = GetByte(buffer, ++index);
             }
-
-            Properties = dictionary;
 
             LoadAttributes();
 
@@ -233,9 +249,9 @@ namespace csifi
             var n = 0;
             var o = _objects[obj];
 
-            if (o.Properties != null && o.Properties.ContainsKey(prop))
+            if (o.ObjectProperties != null && o.ObjectProperties.ContainsKey(prop))
             {
-                var list = o.Properties[prop];
+                var list = o.ObjectProperties[prop].List;
                 if (list.Count > 1)
                 {
                     //TODO check length of list
@@ -253,5 +269,14 @@ namespace csifi
 
             return n;
         }
+
+        public int GetObjectPropertyAddress(int obj, int prop)
+        {
+            var o = _objects[obj];
+            if (o.ObjectProperties == null || !o.ObjectProperties.ContainsKey(prop)) throw new ArgumentException();
+            var addr = o.ObjectProperties[prop].Address;
+            return addr;
+        }
+
     }
 }
