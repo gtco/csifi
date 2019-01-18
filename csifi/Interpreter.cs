@@ -540,11 +540,7 @@ namespace csifi
                 // if "bit 6" is not set, address consists of the six (low) bits
                 // of the first byte plus the next 8 bits.
                 int n = GetByte(Buffer, f.PC++);
-                offset = (offset << 8) + n;
-                if ((offset & 0x02000) > 0)
-                {
-                    offset |= 0xc000;
-                }
+                offset = ((control & 0x3f) << 8) | n;
             }
             return offset;
         }
@@ -565,7 +561,7 @@ namespace csifi
                     return Rtrue(i, f);
                 }
 
-                var addr = f.PC + offset - 2;
+                var addr = (offset & 0x1FFF) - ((offset & 0x2000) | 2) + f.PC;
                 Logger.Debug($" {i.Opcode} : jumping: {addr} ({addr:X4}), offset " + offset);
                 f.PC = addr;
                 return f;
@@ -962,6 +958,8 @@ namespace csifi
             ib.Tokenize(_dictionary.Separators);
             pb.Fill(ib, _dictionary);
             pb.Write(Buffer);
+
+            //TODO encode input text as  a Z-string
 
             var inputView = CopyBuffer(input, inputLimit);
             var parseView = CopyBuffer(parse, parseLimit);
