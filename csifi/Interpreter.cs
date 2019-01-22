@@ -143,7 +143,7 @@ namespace csifi
             _functions.Add(new Instruction(0X01, InstructionType.OneOp), GetSibling);
             _functions.Add(new Instruction(0X02, InstructionType.OneOp), GetChild);
             _functions.Add(new Instruction(0X03, InstructionType.OneOp), GetParent);
-            _functions.Add(new Instruction(0X04, InstructionType.OneOp), NotImplemented);
+            _functions.Add(new Instruction(0X04, InstructionType.OneOp), GetPropLen);
             _functions.Add(new Instruction(0X05, InstructionType.OneOp), Inc);
             _functions.Add(new Instruction(0X06, InstructionType.OneOp), Dec);
             _functions.Add(new Instruction(0X07, InstructionType.OneOp), NotImplemented);
@@ -159,7 +159,7 @@ namespace csifi
             _functions.Add(new Instruction(0X00, InstructionType.ZeroOp), Rtrue);
             _functions.Add(new Instruction(0X01, InstructionType.ZeroOp), Rfalse);
             _functions.Add(new Instruction(0X02, InstructionType.ZeroOp), Print);
-            _functions.Add(new Instruction(0X03, InstructionType.ZeroOp), NotImplemented);
+            _functions.Add(new Instruction(0X03, InstructionType.ZeroOp), PrintRtrue);
             _functions.Add(new Instruction(0X04, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X05, InstructionType.ZeroOp), NotImplemented);
             _functions.Add(new Instruction(0X06, InstructionType.ZeroOp), NotImplemented);
@@ -734,6 +734,28 @@ namespace csifi
             return f;
         }
 
+        public Frame PrintRtrue(Instruction i, Frame f)
+        {
+            bool end;
+            Text text = new Text();
+
+            do
+            {
+                var w = GetWord(Buffer, f.PC);
+                text.AddCharacters(w);
+                f.PC += 2;
+                end = (w & 0x8000) == 0x8000;
+
+            } while (!end);
+
+            string s = text.GetValue(_abbreviationTable);
+            _window.Print(s);
+            _window.NewLine();
+            Logger.Debug("print_rtrue=" + s);
+            return Rtrue(i, f);
+        }
+
+
         public Frame Push(Instruction i, Frame f)
         {
             var n = GetValue(i.Operands[0], f);
@@ -975,6 +997,15 @@ namespace csifi
                 b.Add(Buffer[k]);
             }
             return b;;
+        }
+
+        private Frame GetPropLen(Instruction i, Frame f)
+        {
+            var addr = GetValue(i.Operands[0], f);
+            var value = (GetByte(Buffer, addr - 1) >> 5) + 1;
+            var dest = f.GetByte(Buffer, f.PC++);
+            SaveResult(dest, value, f);
+            return f;
         }
 
         private Frame NotImplemented(Instruction instruction, Frame currentFrame)
